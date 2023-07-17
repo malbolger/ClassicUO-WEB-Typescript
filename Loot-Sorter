@@ -1,0 +1,431 @@
+//Delay
+let itemMoveDelay = 750;
+
+//Weight values we give to stats to decide if we keep an item.
+//They only receive this value if they pass the minimum 'Keep' value.
+let resistWeight = .1;
+let regenWeight = .1;
+let resistEatWeight = .1;
+let dciWeight = .5;
+let hciWeight = .5;
+let ssiWeight = .5;
+let lowerOnHitWeight = .2;
+let castingWeight = 1;
+let slayerWeight = 5;
+let superSlayerWeight = 10;
+let specialWeight = 10;
+let leechWeight = .2;
+let drainWeight = .1;
+let areaOnHitWeight = .2;
+let spellOnHitWeight = .2;
+let damageWeight = .5;
+let lowerCostWeight = .2;
+let spellchannelWeight = 5;
+let reflectWeight = .5;
+let luckWeight = .2;
+let miscWeight = .1;
+let statBonusWeight = .5;
+
+//We keep an item once it reaches this score.
+let itemScoreKeep = 20;
+
+client.headMsg("<<Target Loot Bag>>", player);
+let lootBagTarget = target.query(false);
+client.headMsg(">>Loot bag set<<", player, 0x64)
+sleep(500);
+client.headMsg("<<Target Keep Bag>>", player)
+let bagOfKeep = target.query(false);
+client.headMsg(">>Keep bag set<<", player, 0x64)
+sleep(500);
+client.headMsg("<<Target Trash>>", player)
+let bagOfTrash = target.query(false);
+client.headMsg(">>Trash bag set<<", player, 0x64)
+sleep(500);
+
+let bag = (client.findObject(lootBagTarget) as Item)
+
+if (!(bag instanceof Item)) {
+  client.headMsg("%*Loot Bag was not an item*%", player);
+  exit("That is not an item!");
+}
+//Open the container so the client can see the items.
+player.use(bag.serial);
+let lootBag = bag.contents;
+
+for (const loot of lootBag) {
+  if (loot) {
+    let itemScore = 0;
+    //CHECK KEEP BY LEVEL (NOT WORKING)
+    itemScore = CalculateScore(loot.serial);
+
+    //KEEP OR TRASH BASED ON SCORE
+    if (itemScore >= itemScoreKeep) {
+      player.moveItem(loot, bagOfKeep)
+      console.log("Kept:", loot.name, loot.serial, "Score:", itemScore)
+      sleep(itemMoveDelay);
+      itemScore = 0;
+      continue;
+    }
+    else {
+      console.log("Trashed:", loot.name, loot.serial, "Score:", itemScore);
+      player.moveItem(loot, bagOfTrash)
+      sleep(itemMoveDelay);
+      itemScore = 0;
+      continue;
+    }
+  }
+  else {
+    break;
+  }
+}
+
+//Function courtesy of Mourad (Discord: mouradmourad)
+function CalculateScore(serial_item: number) {
+  if (serial_item == 0) {
+    return
+  }
+  var tooltip = client.queryItemOPL(serial_item);
+  const props = tooltip.data.split("\n");
+
+  let itemScore = 0;
+  for (let i = 0; i < props.length; i++) {
+    let value = null;
+    var mod = props[i].match(/^\D+/)[0];
+    mod = mod.toLowerCase().trim();
+    var arr_value = props[i].match(/\d+/) ?? [].shift();
+    //console.log(mod, arr_value);
+    //if the mod has no value (e.g blessed, undead slayer...) we just return true if it exists
+
+    if (arr_value != null) {
+      value = arr_value.join();
+    }
+    //console.log(value);
+    //console.log(mod, value)
+    switch (mod) {
+      //RESISTS
+      case "fire resist": {
+        itemScore = itemScore + (value * resistWeight);
+        break;
+      }
+      case "physical resist": {
+        itemScore = itemScore + (value * resistWeight);
+        break;
+      }
+      case "cold resist": {
+        itemScore = itemScore + (value * resistWeight);
+        break;
+      }
+      case "poison resist": {
+        itemScore = itemScore + (value * resistWeight);
+        break;
+      }
+      case "energy resist": {
+        itemScore = itemScore + (value * resistWeight);
+        break;
+      }
+      //MANA REGEN
+      case "mana regeneration": {
+        itemScore = itemScore + (value * regenWeight);
+        break;
+      }
+      //COMBAT INCREASE/LOWER
+      case "defense chance increase": {
+        itemScore = itemScore + (value * dciWeight);
+        break;
+      }
+      case "hit chance increase": {
+        itemScore = itemScore + (value * hciWeight);
+        break;
+      }
+      case "swing speed increase": {
+        itemScore = itemScore + (value * ssiWeight);
+        break;
+      }
+      case "hit lower attack": {
+        itemScore = itemScore + (value * lowerOnHitWeight);
+        break;
+      }
+      case "hit lower defense": {
+        itemScore = itemScore + (value * lowerOnHitWeight);
+        break;
+      }
+      //CAST SPEED
+      case "faster cast recovery": {
+        itemScore = itemScore + (value * castingWeight);
+        break;
+      }
+      case "faster casting": {
+        itemScore = itemScore + (value * castingWeight);
+        break;
+      }
+      //LOWER COSTS
+      case "lower mana cost": {
+        itemScore = itemScore + (value * lowerCostWeight);
+        break;
+      }
+      case "lower reagent cost": {
+        itemScore = itemScore + (value * lowerCostWeight);
+        break;
+      }
+      //SPELLCHANNELING
+      case "spell channeling": {
+        itemScore = itemScore + (value * spellchannelWeight);
+        break;
+      }
+      //REFLECT
+      case "reflect physical damage": {
+        itemScore = itemScore + (value * reflectWeight);
+        break;
+      }
+      //LUCK
+      case "luck": {
+        itemScore = itemScore + (value * luckWeight);
+        break;
+      }
+      //MISC
+      case "mage armor": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      case "mage weapon": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      case "night sight": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      case "replenish charges": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      case "self repair": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      case "use best weapon skill": {
+        itemScore = itemScore + (value * miscWeight);
+        break;
+      }
+      //STAT BONUS'
+      case "strength bonus": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      case "intelligence bonus": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      case "dexterity bonus": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      case "hit point increase": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      case "stamina increase": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      case "mana increase": {
+        itemScore = itemScore + (value * statBonusWeight);
+        break;
+      }
+      //SPECIAL
+      case "bane": {
+        itemScore = itemScore + (value * specialWeight);
+        break;
+      }
+      case "battle lust": {
+        itemScore = itemScore + (value * specialWeight);
+        break;
+      }
+      case "splintering weapon": {
+        itemScore = itemScore + (value * specialWeight);
+        break;
+      }
+      //LEECH
+      case "hit life leech": {
+        itemScore = itemScore + (value * leechWeight);
+        break;
+      }
+      case "hit mana leech": {
+        itemScore = itemScore + (value * leechWeight);
+        break;
+      }
+      case "hit stamina leech": {
+        itemScore = itemScore + (value * leechWeight);
+        break;
+      }
+      //DRAIN
+      case "hit mana drain": {
+        itemScore = itemScore + (value * drainWeight);
+        break;
+      }
+      case "hit fatigue": {
+        itemScore = itemScore + (value * drainWeight);
+        break;
+      }
+      //AREAONHIT
+      case "hit physical area": {
+        itemScore = itemScore + (value * areaOnHitWeight);
+        break;
+      }
+      case "hit poison area": {
+        itemScore = itemScore + (value * areaOnHitWeight);
+        break;
+      }
+      case "hit cold area": {
+        itemScore = itemScore + (value * areaOnHitWeight);
+        break;
+      }
+      case "hit fire area": {
+        itemScore = itemScore + (value * areaOnHitWeight);
+        break;
+      }
+      case "hit energy area": {
+        itemScore = itemScore + (value * areaOnHitWeight);
+        break;
+      }
+      //SPELLONHIT
+      case "hit harm": {
+        itemScore = itemScore + (value * spellOnHitWeight);
+        break;
+      }
+      case "hit magic arrow": {
+        itemScore = itemScore + (value * spellOnHitWeight);
+        break;
+      }
+      case "hit lightning": {
+        itemScore = itemScore + (value * spellOnHitWeight);
+        break;
+      }
+      case "hit fireball": {
+        itemScore = itemScore + (value * spellOnHitWeight);
+        break;
+      }
+      case "dispel": {
+        itemScore = itemScore + (value * spellOnHitWeight);
+        break;
+      }
+      //DAMAGE
+      case "spell damage increase": {
+        itemScore = itemScore + (value * damageWeight);
+        break;
+      }
+      case "damage increase": {
+        itemScore = itemScore + (value * damageWeight);
+        break;
+      }
+      //SUPER SLAYER
+      case "repond": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "silver": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "undead slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "elemental slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "fey slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "demon slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "arachnid slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      case "reptile slayer": {
+        itemScore = itemScore + (value * superSlayerWeight);
+        break;
+      }
+      //SLAYER
+      case "ogre slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "orc slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "troll slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "air elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "blood elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "earth elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "fire elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "poison elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "snow elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "water elemental slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "gargoyle slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "scorpion slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "spider slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "terathan slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "dragon slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "lizardman slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "ophidian slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+      }
+      case "snake slayer": {
+        itemScore = itemScore + (value * slayerWeight);
+        break;
+        console.log(mod, itemScore)
+      }
+    }
+  }
+  return itemScore;
+}
