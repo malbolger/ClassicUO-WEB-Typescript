@@ -2,7 +2,6 @@
 let itemMoveDelay = 750;
 
 //Weight values we give to stats to decide if we keep an item.
-//They only receive this value if they pass the minimum 'Keep' value.
 let resistWeight = .1;
 let regenWeight = .1;
 let resistEatWeight = .1;
