@@ -1,0 +1,135 @@
+//////////////////////////////////////
+////////////////CONFIG////////////////
+//////////////////////////////////////
+let BANDAGES = 0xE21;                           //Type of clean bandage
+let actionTimeout = 2000;                       //Short timeout if action did not work.
+let bandageTimeout = 4000;                      //Timeout to look for bandage start message              
+let bandageStartOverhead = "<<Bandaging>>";     //Overhead message when bandage starts
+let bandageFinsihedOverhead = ">>Finished<<";   //Overhead message when bandage finishes
+let bandageStartHue = 0x33;                     //Hue of start overhead message
+let bandageFinishedHue = 0x55;                  //Hue of finished overhead message
+let questionColor = 0x45;                       //Color of questions
+let confirmColor = 0x44;                        //Color of confirmations
+let bandageDistanceMax = 2;                     //How close to conider a target for bandaging?
+
+//PLAYER BODY TYPES(ADD MORE IF YOUR SERVER HAS CUSTOM GRAPHICS)
+//let PLAYER_TYPES = [0x190, 0x191, 0x25D, 0x25E, 0x29A, 0x29B]; 
+
+let ALL_BANDAGE_TARGETS = [];
+let INRANGE_TARGETS = [];
+
+enum JournalMessages {
+  HEALED = "You finish applying",
+  FAILED_HEAL = "barely help",
+  HEAL_LITTLE = "You heal what little"
+}
+//////////////////////////////////////////
+////////////////END CONFIG////////////////
+//////////////////////////////////////////
+let CompareTypeList = (compareTypeList: number[], typeToCheck: InGameObject) => (compareTypeList.find(mobile => mobile === typeToCheck.graphic));
+//interface of object information given in game
+interface InGameObject {
+  name?: Mobile["name"];
+  type?: string;
+  serial?: number
+  x: number;
+  y: number;
+  z: number;
+  graphic: number;
+  hue: number;
+  hits: number;
+  maxHits: number
+}
+
+//Add all myTargets to an array
+let count = questionColor;
+client.headMsg("Press Escape When All", player, 0x77);
+client.headMsg("Targets Are Added", player, 0x77);
+sleep(500);
+while (true) {
+  client.headMsg("Select a Bandage Target", player, count);
+  let targetAdd = target.query(false);
+  if (targetAdd.serial > 0) {
+    ALL_BANDAGE_TARGETS.push(targetAdd);
+    count = count + 25;
+  }
+  else {
+    let sb = "["+ALL_BANDAGE_TARGETS.length + " Targets Set]"
+    client.headMsg(sb, player, 0x77)
+    break;
+  }
+}
+
+
+//script main loop
+while (true) {
+  sleep(100);
+  try {
+    if (client.findType(BANDAGES, undefined, player)) {
+      // Get all myTargets in range
+      INRANGE_TARGETS = [];
+      for (let target of ALL_BANDAGE_TARGETS) {
+        //get current information about our target
+        let mobile = client.findObject(target);
+        if (CheckDistanceFromPlayer(mobile) < bandageDistanceMax) {
+          INRANGE_TARGETS.push(mobile);
+        }
+      }
+
+      //Get Most hurt target that is in rang
+      let mostHurt = ComapreTargetsLife(INRANGE_TARGETS);
+      if (mostHurt) {
+        if (!target.open) {
+          Bandage(mostHurt);
+        }
+      }
+    }
+  }
+  catch {
+    
+  }
+  sleep(500);
+}
+
+function ComapreTargetsLife(myTargets: InGameObject[]) {
+  if (myTargets.length == 0) {
+    return false;
+  }
+  let returnTarget = myTargets[0];
+  for (let i = 0; i < myTargets.length; i++) {
+
+    let returnTargetPercent = returnTarget.hits / returnTarget.maxHits * 100;
+    let myTargetsPercent = myTargets[i].hits / myTargets[i].maxHits * 100;
+    if (myTargetsPercent <= returnTargetPercent) {
+      returnTarget = myTargets[i];
+      sleep(50);
+    }
+  }
+  if (returnTarget.hits < returnTarget.maxHits) {
+    return returnTarget;
+  }
+}
+
+function Bandage(myTarget: InGameObject) {
+  journal.clear();
+  player.useType(BANDAGES);
+  target.waitTargetEntity(myTarget.serial);
+  client.headMsg(bandageStartOverhead, player, 0x33);
+  if (!journal.waitForText("Begin applying", undefined, actionTimeout)) {
+    return;
+  }
+  journal.waitForTextAny([JournalMessages.HEALED, JournalMessages.FAILED_HEAL, JournalMessages.HEAL_LITTLE], undefined, bandageTimeout);
+  client.headMsg(bandageFinsihedOverhead, player, 0x55);
+}
+
+function CheckDistanceFromPlayer(target: InGameObject) {
+  let distanceX = Math.abs(player.x - target.x);
+  let distanceY = Math.abs(player.y - target.y);
+  //console.log(distanceX, distanceY)
+  if (distanceX > distanceY) {
+    return distanceX;
+  }
+  else {
+    return distanceY;
+  }
+}
