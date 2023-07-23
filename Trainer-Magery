@@ -1,0 +1,53 @@
+let shouldCast = true;
+let meditateWhenMissing = 40;
+let spellRecoveryTime = 750;
+
+enum JournalMageryMessages{
+  ENTER = "enter a meditative",
+  FAIL = "fail to enter",
+  AT_PEACE = "you are at peace",
+  REGS_NEEDED = "More reagents are needed"
+}
+
+while (shouldCast) {
+  let magery = (player.getSkill(Skills.Magery).value / 10);
+  if((player.maxMana - player.mana) > meditateWhenMissing) {
+    while (player.mana < player.maxMana) {
+      player.useSkill(Skills.Meditation)
+      if (journal.containsText(JournalMageryMessages.ENTER)) {
+        while (player.mana < player.maxMana) {
+          sleep(1000);
+        }
+      }
+      else {
+        sleep(4000);
+      }
+    }
+  }
+  if (journal.containsText(JournalMageryMessages.REGS_NEEDED)) {
+    journal.clear()
+    shouldCast = false;
+    client.headMsg(">>>Out of Regs<<<", player);
+    client.headMsg("<<<Script Off>>>", player);
+    break;
+  }
+  else if(magery < 60) {
+    player.cast(Spells.MagicReflect);
+    sleep(3000);
+  
+  }
+  else if (magery < 80) {
+    player.cast(Spells.Invisibility);
+    target.waitTargetSelf(6000);
+    sleep(spellRecoveryTime);
+  }
+  else if (magery < 100) {
+    player.cast(Spells.Earthquake);
+    sleep(4000);
+  }
+  else {
+    client.headMsg("YOU DID IT!", player);
+    shouldCast = false;
+    break;
+  }
+}
