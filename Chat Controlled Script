@@ -1,0 +1,47 @@
+let CompareStringList = (stringList: string[], myString: string) => (stringList.find(myListString => myListString === myString));
+
+let rangeNumber = ["10", "2", "3", "4", "5", "6", "7", "8", "9", "1"];
+let rangeColor = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
+let rangeYesNo = ["yes", "no"];
+
+let combinedStrings = rangeNumber.concat(rangeColor.concat(rangeYesNo));
+
+journal.clear();
+
+let myInput = journal.waitForTextAny(combinedStrings, player.name, 5000).toLowerCase().trim();
+console.log("I wrote: ",myInput);
+
+if (CompareStringList(rangeNumber, myInput)) {
+  let myNumber = Number(journal.waitForTextAny(rangeNumber, player.name, 5000));
+
+  for (let i = 0; i < myNumber; i++) {
+    console.log("Hello", i);
+  }
+}
+if (CompareStringList(rangeColor, myInput)) {
+  switch (myInput) {
+    case "red": {
+      //do stuff
+      console.log("My Color Is: ", myInput)
+      break;
+    }
+    case "orange": {
+      //do stuff
+      console.log("My Color Is: ", myInput)
+      break;
+    }
+  }
+}
+if (CompareStringList(rangeYesNo, myInput)) {
+  switch (myInput) {
+    case "yes": {
+      console.log("A wise man chooses: ", myInput);
+      break;
+    }
+    case "no": {
+      console.log("Are you a yes man? ", myInput);
+      break;
+    }
+  }
+}
+
