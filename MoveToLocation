@@ -1,0 +1,67 @@
+MoveTo(2573, 171)
+
+function MoveTo(destX: number, destY: number) {
+
+  let locationX = destX;
+  let locationY = destY;
+  let distanceBool = true;
+
+
+  while (distanceBool) {
+      let myX = player.x;
+  let myY = player.y;
+    let distanceEW = player.x - locationX;
+    let distanceNS = player.y - locationY;
+
+    //TODO: CHECK DIAGONALS FIRST
+    //console.log("MyX:", myX, "MobileX:", locationX, "MyY:", myY, "MobileY:", locationY, "DistanceEW:", distanceEW, "DistanceNS:", distanceNS);
+    if ((myX > locationX && myY > locationY) && (distanceEW > 1 && distanceNS > 1)) {
+      client.headMsg("Walking Up", player);
+      player.walk(Directions.Up);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY < locationY) && (distanceEW < -1 && distanceNS < -1)) {
+      client.headMsg("Walking Down", player);
+      player.walk(Directions.Down);
+      sleep(500);
+      continue;
+    }
+    else if ((myX > locationX && myY < locationY) && (distanceEW > 1 && distanceNS < -1)) {
+      client.headMsg("Walking Left", player);
+      player.walk(Directions.Left);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY > locationY) && (distanceEW < -1 && distanceNS > 1)) {
+      client.headMsg("Walking Right", player);
+      player.walk(Directions.Right);
+      sleep(500);
+      continue;
+    }
+    else if ((myX > locationX) && (distanceEW > 1)) {
+      client.headMsg("Walking West", player);
+      player.walk(Directions.West);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX) && (distanceEW < -1)) {
+            client.headMsg("Walking East", player);
+      player.walk(Directions.East);
+      sleep(500);
+      continue;
+    }
+    else if ((myY < locationY) && (distanceNS < -1)) {
+      client.headMsg("Walking South", player);
+      player.walk(Directions.South);
+      sleep(500);
+      continue;
+    }
+    else if ((myY > locationY) && (distanceNS > 1)) {
+      client.headMsg("Walking North", player);
+      player.walk(Directions.North);
+      sleep(500);
+      continue;
+    }
+  }
+}
