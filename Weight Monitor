@@ -1,0 +1,89 @@
+let yellowDifference = 100;
+let redDifference = 20;
+let oldWeight = 0;
+let durabilityWarn = 20;
+let durabilityWarnFrequency = 50;
+let durabilityWarnCount = 0;
+
+let COLOR_GREEN = 0x44;
+let COLOR_YELLOW = 0x84E;
+let COLOR_RED = 0x22;
+while (true) {
+  sleep(150);
+  DurabilityTracker();
+  if (oldWeight != player.weight) {
+    if (player.weight > player.weightMax) {
+      client.headMsg("[OVERWEIGHT]", player, COLOR_RED);
+    }
+    if (player.weightMax - player.weight <= redDifference) {
+      let sb = "[" + player.weight + "/" + player.weightMax + "]"
+      client.headMsg(sb, player, COLOR_RED);
+      oldWeight = player.weight;
+    }
+    else if (player.weightMax - player.weight <= yellowDifference) {
+      let sb = "[" + player.weight + "/" + player.weightMax + "]"
+      client.headMsg(sb, player, COLOR_YELLOW);
+      oldWeight = player.weight;
+    }
+    else {
+      let sb = "[" + player.weight + "/" + player.weightMax + "]"
+      client.headMsg(sb, player, COLOR_GREEN);
+      oldWeight = player.weight;
+    }
+  }
+}
+
+function DurabilityTracker() {
+
+  if (durabilityWarnCount > durabilityWarnFrequency) {
+    let EQUIPPED_LIST = [player.equippedItems.gloves,
+    player.equippedItems.necklace,
+    player.equippedItems.helmet,
+    player.equippedItems.arms,
+    player.equippedItems.legs,
+    player.equippedItems.torso,
+    player.equippedItems.oneHanded,
+    player.equippedItems.twoHanded]
+
+
+    for (let item of EQUIPPED_LIST) {
+      try {
+        let durability = ItemDurability(item.serial);
+        if (durability < durabilityWarn) {
+          let sb = item.name + " now has a durability of " + durability;
+          client.headMsg(sb, 0, 0x22); //RED SYSTEM MESSAGE
+          durabilityWarnCount = 0;
+        }
+      }
+      catch { }
+    }
+  }
+  durabilityWarnCount++
+}
+
+function ItemDurability(serial_item: number) {
+  if (serial_item == 0) {
+    return
+  }
+
+  var tooltip = client.queryItemOPL(serial_item);
+  const props = tooltip.data.split("\n");
+
+  for (let i = 0; i < props.length; i++) {
+    let value = null;
+    var mod = props[i].match(/^\D+/)[0];
+    mod = mod.toLowerCase().trim();
+    var arr_value = props[i].match(/\d+/) ?? [].shift();
+    //console.log(mod, arr_value);
+    //if the mod has no value (e.g blessed, undead slayer...) we just return true if it exists
+
+    if (arr_value != null) {
+      value = arr_value.join();
+    }
+    switch (mod) {
+      case "durability": {
+        return value;
+      }
+    }
+  }
+}
