@@ -1,0 +1,10 @@
+let targetTame = target.query(false);
+
+while (true)
+{
+player.cast(744)
+//player.cast(Spells.CombatTraining)
+  target.waitTargetEntity(targetTame);
+  Gump.findOrWait(0x92E576B6, 5000);
+sleep(1500);
+}
