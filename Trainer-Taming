@@ -1,0 +1,512 @@
+/***************************/
+/***********ENUMS***********/
+/***************************/
+
+//Responses given by the server. Set to match your needs.
+enum JournalResponse {
+  YOU_FAIL = "You fail to tame",
+  YOU_TAME = "It seems to accept",
+  YOU_ANGER = "You anger the beast",
+  TAME_ALREADY = "That animal looks tame",
+  NO_CHALLENGE = "That wasn't even challenging",
+  TOO_MANY_FOLLOWERS = "You have too many followers",
+  CANNOT_BE_TAMED = "That creature cannot"
+}
+
+//Context Menu for tames. Edit for your server
+enum TameContextMenu {
+  RENAME = 0,
+  COMMAND_KILL = 1,
+  COMMAND_FOLLOW = 2,
+  COMMAND_GUARD = 3,
+  COMMAND_STOP = 4,
+  COMMAND_STAY = 5,
+  ADD_FRIEND = 6,
+  REMOVE_FRIEND = 7,
+  TRANSFER = 8,
+  RELEASE = 9
+}
+
+//How we want to kill our tames
+enum KillType {
+  MAGERY = 1,
+  MELEE = 2,
+  TAME = 3
+}
+
+/***************************/
+/**********CONFIG***********/
+/***************************/
+let mobileScanRange = 15; //How many spaces away to scan for Mobiles.
+let mobileScanHeight = 6; //How high before we ignore the mobile
+let tameRange = 2; //How close we need to be to tame.
+let skillRange = 5; //How far away we can use our skill.
+let followerBaseCount = 0; //Amount of followers before you start taming.(incase of tames or horse)
+let tamingGump = 0x909CC741 //Release Gump. Set to match your server.
+let shouldRelease = true; //should we release what we tame?
+let releaseBeforeKill = true; //Should we release our tames before we kill them? (guilded players should not need this)
+let killTamesWith = KillType.MELEE; //How we want to kill our tames.
+let spellRecoveryTime = 1750; //Recovery time before another spell can be cast.
+let killSpell = Spells.Fireball; //Spell we want to kill tames with.
+let walkTimeoutLoops = 200; //How many attempted loops to get to our target before ignoring.
+
+let wantedStr = 100;
+let wantedDex = 25;
+let wantedInt = 100
+
+//TAMEABLE GRAPHIC ID'S BY SKILL LEVEL
+//POPULATE THESE WITH WHAT YOU WANT TO TAME
+//NAMES SHOULD BE SELF EXPLAINITORY
+
+// COWS, SHEEP, GOAT, PIG
+let UNDERFOURTYFIVE = [0xD8, 0xE7, 0xCF, 0xCB, 0xD1];
+
+//HINDS, TIMBERWOLVES, BOAR, COUGAR, BROWN BEAR, BLACK BEAR, PANTHER
+let FOURTYFIVETOSIXTY = [0x122, 0x3F, 0xED, 0xE1, 0xA7, 0xD3, 0xD6];
+
+//HINDS, TIMBERWOLVES, BOAR, COUGAR, BROWN BEAR, BLACK BEAR, PANTHER, 
+//GREY WOLF, GREAT HART 
+let SIXTYTOSEVENTYFIVE = [0x122, 0x3F, 0xED, 0xE1, 0xA7, 0xD3, 0xD6, 0x19, 0xEA];
+
+//GRIZZLY BEAR, GREAT HART, BULLS
+let SEVENTYFIVETOEIGHTYFIVE = [0xD4, 0xEA, 0xE9, 0xE8];
+
+//GRIZZLY BEAR, GREAT HART, BULLS
+let EIGHTYFIVETOGM = [0xD4, 0xEA, 0xE9, 0xE8];
+
+let GMTOONETEN = [0x7A];
+let ONETENTOONETWENTY = [];
+
+//----------------------------------------------//
+/************************************************/
+/*************** DONT EDIT BELOW ****************/
+/****** UNLESS YOU KNOW WHAT YOU ARE DOING ******/
+/************************************************/
+//----------------------------------------------//
+
+let MOBILELIST = []; //List of mobiles we will tame.
+let IGNORETAMEDLIST = []; //Ignore on future tame attempts.
+let TAMEABLELIST = []; //Types of mobiles to tame.
+let FoundEntity = null;
+let tamingBool = true;
+let CompareTamedSerial = (mobileList: InGameObject[], tameable: InGameObject) => (mobileList.find(mobile => mobile.serial === tameable.serial));
+let CompareTamableListFind = (tameableTypeList: number[], foundMobile: InGameObject) => (tameableTypeList.find(tameable => tameable === foundMobile.graphic));
+
+//interface of object information given in game
+interface InGameObject {
+  name?: Mobile["name"];
+  type?: string;
+  serial?: number
+  x: number;
+  y: number;
+  z: number;
+  graphic: number;
+  hue: number;
+}
+
+//Our Macro Loop
+while (tamingBool) {
+  //Check Taming skill and set taming list accordingly
+  CheckSkillSetList();
+  sleep(500);
+  //If we don't have a list to tame, get one
+  if (MOBILELIST.length == 0) {
+    GetMobileInfo(mobileScanRange);
+  }
+  //If we got a list, move to and tame them.
+  if (MOBILELIST.length > 0) {
+    MoveToTame(MOBILELIST[0]);
+  }
+  if (MOBILELIST.length > 0) {
+    TameMobile(MOBILELIST[0]);
+  }
+}
+/***************************/
+/******** FUNCTIONS ********/
+/***************************/
+
+function GetMobileInfo(mobileScanRange: number) {
+  //Clear our list incase of leftover items
+  MOBILELIST = [];
+
+  console.log("scanning mobiles");
+  for (let i = 0; i < 50; i++) {
+    //FoundEntity = client.selectEntity(SearchEntityOptions.Gray, SearchEntityRangeOptions.Next, SearchEntityTypeOptions.NonHuman, false);
+    FoundEntity = client.selectEntity(SearchEntityOptions.Any, SearchEntityRangeOptions.Next, SearchEntityTypeOptions.NonHuman, false)
+    if (FoundEntity) {
+      //Check Type of tamable is on our list
+      if (CompareTamableListFind(TAMEABLELIST, FoundEntity)) {
+        //Check if tamable serial is on the List already
+        if (!CompareTamedSerial(MOBILELIST, FoundEntity)) {
+          //Check if tamable is on the ignore list
+          if (!CompareTamedSerial(IGNORETAMEDLIST, FoundEntity)) {
+            //Check if the tameable is in range
+            if (CheckDistanceFromPlayer(FoundEntity) < mobileScanRange && CheckHeightFromPlayer(FoundEntity) < mobileScanHeight) {
+              //Place tameable on our approved list
+              MOBILELIST.push(FoundEntity);
+            }
+          }
+        }
+      }
+    }
+  }
+  console.log("List of tameable creatures", MOBILELIST);
+  console.log("Mobile ignore list", IGNORETAMEDLIST);
+}
+
+//Make sure to keep checking as Mobiles move.
+//Move diagonal?
+function MoveToTame(mobile: InGameObject) {
+
+  let distanceBool = true;
+  let ewBool = false;
+  let nsBool = false
+
+  let loopCount = 0;
+
+  while (distanceBool) {
+    let myX = player.x;
+    let myY = player.y;
+
+    let mobileX = mobile.x;
+    let mobileY = mobile.y;
+
+    let distanceEW = player.x - mobileX;
+    let distanceNS = player.y - mobileY;
+
+    //increase our loopCount
+    loopCount++
+    //console.log("LoopCount:", loopCount);
+    
+    //If the loopCount reaches the maximum
+    //Ignore the mobile and reset.
+    if (loopCount > walkTimeoutLoops)
+    {
+      //IgnoreMobile(IGNORETAMEDLIST, MOBILELIST, mobile);
+      console.log("Ignoring:", mobile.name, mobile.serial, "Mobiles in list:", MOBILELIST.length, "Ignored count:", IGNORETAMEDLIST.length);
+      IGNORETAMEDLIST.push(mobile);
+      if (MOBILELIST.length > 1) {
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+      }
+      else{
+        MOBILELIST = [];
+      }
+      return;
+    }
+    if (mobileX === 0 || mobileY === 0) {
+      console.log("Mobile location invalid:", "x:", mobileX, "y:", mobileY, "serial:", mobile.serial)
+      console.log("Ignoring:", mobile.name, mobile.serial, "Mobiles in list:", MOBILELIST.length, "Ignored count:", IGNORETAMEDLIST.length);
+      IGNORETAMEDLIST.push(mobile);
+      if (MOBILELIST.length > 1) {
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+      }
+      else {
+        MOBILELIST = [];
+      }
+      return;
+    }
+    console.log("Moving to:", mobile.name, mobile.serial)
+    sleep(50);
+    //TODO: CHECK DIAGONALS FIRST
+    //console.log("MyX:", myX, "MobileX:", mobileX, "MyY:", myY, "MobileY:", mobileY, "DistanceEW:", distanceEW, "DistanceNS:", distanceNS);
+    if ((myX > mobileX && myY > mobileY) && (distanceEW > tameRange && distanceNS > tameRange)) {
+      //client.headMsg("Walking Up", player);
+      player.walk(Directions.Up);
+      continue;
+    }
+    else if ((myX < mobileX && myY < mobileY) && (distanceEW < -tameRange && distanceNS < -tameRange)) {
+      //client.headMsg("Walking Down", player);
+      player.walk(Directions.Down);
+      continue;
+    }
+    else if ((myX > mobileX && myY < mobileY) && (distanceEW > tameRange && distanceNS < -tameRange)) {
+      //client.headMsg("Walking Left", player);
+      player.walk(Directions.Left);
+      continue;
+    }
+    else if ((myX < mobileX && myY > mobileY) && (distanceEW < -tameRange && distanceNS > tameRange)) {
+      //client.headMsg("Walking Right", player);
+      player.walk(Directions.Right);
+      continue;
+    }
+
+    if (myX > mobileX && distanceEW > tameRange) {
+      //client.headMsg("Walking West", player);
+      player.walk(Directions.West);
+      continue;
+    }
+    else if (myX < mobileX && distanceEW < -tameRange) {
+      //client.headMsg("Walking East", player);
+      player.walk(Directions.East);
+      continue;
+    }
+    else {
+      ewBool = true;
+    }
+
+    if (myY > mobileY && distanceNS > tameRange) {
+      //client.headMsg("Walking North", player);
+      player.walk(Directions.North);
+      continue;
+    }
+    else if (myY < mobileY && distanceNS < -tameRange) {
+      //client.headMsg("Walking South", player);
+      player.walk(Directions.South);
+      continue;
+    }
+    else {
+      nsBool = true;
+    }
+    if (ewBool && nsBool) {
+      //console.log("At Location")
+      distanceBool = false;
+    }
+  }
+  //When we get to destination we tame it
+  console.log("At location");
+}
+
+function CheckDistanceFromPlayer(mobile: InGameObject) {
+
+  let distanceX = player.x - mobile.x;
+  let distanceY = player.y - mobile.y;
+
+
+  if (distanceX < 0) {
+    distanceX = mobile.x - player.x;
+  }
+  if (distanceY < 0) {
+    distanceY = mobile.y - player.y;
+  }
+
+
+  if (distanceX > distanceY) {
+    return distanceX;
+  }
+  else {
+    return distanceY;
+  }
+}
+
+function CheckHeightFromPlayer(mobile: InGameObject) {
+  let distanceZ = player.z - mobile.z;
+
+  if (distanceZ < 0) {
+    distanceZ = mobile.z - player.z;
+  }
+
+  return distanceZ;
+
+}
+
+function TameMobile(mobile: InGameObject) {
+  let tameName = mobile.name;
+  let tamedBool = false;
+
+  while (!tamedBool) {
+    if (player.followers < player.maxFollowers) {
+      if (CheckDistanceFromPlayer(mobile) <= tameRange) {
+        console.log("Taming:", tameName, mobile.serial)
+        journal.clear();
+        player.useSkill("AnimalTaming", mobile.serial)
+      }
+      else {
+        if(mobile.serial != null && mobile.x > 0 && mobile.y > 0)
+        console.log("Moving Closer to:", mobile.serial)
+        MoveToTame(mobile);
+      }
+    }
+    else {
+      client.headMsg("Too Many Followers", player);
+      return;
+    }
+
+    let TIMEOUT = 40;
+    let LOOPSLEEP = 500;
+    //Journal wait loop
+    for (let i = 0; i < TIMEOUT; i++) {
+      if (journal.containsText(JournalResponse.YOU_TAME, mobile.name)) {
+        //IgnoreMobile(IGNORETAMEDLIST, MOBILELIST, mobile);
+        IGNORETAMEDLIST.push(mobile);
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+        console.log("Ignore List: ", IGNORETAMEDLIST);
+        console.log("Mobile List: ", MOBILELIST)
+        tamedBool = true;
+        if (shouldRelease) {
+          KillTame(mobile);
+        }       
+        return;
+      }
+      if (journal.containsText(JournalResponse.NO_CHALLENGE, "System")) {
+        //IgnoreMobile(IGNORETAMEDLIST, MOBILELIST, mobile);
+        IGNORETAMEDLIST.push(mobile);
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+        console.log(IGNORETAMEDLIST);
+        tamedBool = true;
+        if (shouldRelease) {
+          KillTame(mobile);
+        }   
+        return;
+      }
+      if (journal.containsText(JournalResponse.TAME_ALREADY, mobile.name)) {
+        //IgnoreMobile(IGNORETAMEDLIST, MOBILELIST, mobile);
+        IGNORETAMEDLIST.push(mobile);
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+        console.log("Tamed List: ", IGNORETAMEDLIST);
+        console.log("Mobile List: ", MOBILELIST)
+        tamedBool = true;
+        if (shouldRelease) {
+          KillTame(mobile);
+        }   
+        return;
+      }
+      if (journal.containsText(JournalResponse.TOO_MANY_FOLLOWERS, "System")) {
+        client.headMsg("Too Many!", player);
+        break;
+      }
+      if (journal.containsText(JournalResponse.YOU_FAIL, mobile.name)) {
+        //client.headMsg("Failed Tame", player);
+        break;
+      }
+      if (journal.containsText(JournalResponse.CANNOT_BE_TAMED, mobile.name)) {
+        //IgnoreMobile(IGNORETAMEDLIST, MOBILELIST, mobile);
+        IGNORETAMEDLIST.push(mobile);
+        MOBILELIST = MOBILELIST.slice(1, MOBILELIST.length);
+        console.log("Tamed List: ", IGNORETAMEDLIST);
+        console.log("Mobile List: ", MOBILELIST)
+        console.log(IGNORETAMEDLIST);
+        tamedBool = true;
+        return;
+      }
+      //Move close to tame
+      if (CheckDistanceFromPlayer(mobile) > 5) {
+        console.log("Moving to tame")
+        if (MOBILELIST[0].serial != null && mobile.serial != null) {
+          if (MOBILELIST[0].serial === mobile.serial) {
+            MoveToTame(mobile)
+          }
+          else {
+            return;
+          }
+          return;
+        }
+      }
+      sleep(LOOPSLEEP);
+    }
+
+  }
+}
+
+function KillTame(mobile: InGameObject) {
+
+  player.say("All Follow Me");
+  player.say("All Guard Me");
+
+  if (releaseBeforeKill) {
+    //0x909CC741
+    popupMenu.request(mobile.serial)
+    popupMenu.waitUntilOpen(1000);
+    popupMenu.reply(TameContextMenu.RELEASE);
+    let gump = Gump.findOrWait(tamingGump, 3000);
+    gump.reply(2) //continue
+    sleep(1000);
+  }
+
+  switch (killTamesWith) {
+    //MAGERY
+    case 1: {
+      let thisMobile = client.findObject(mobile.serial);
+      while (thisMobile) {
+        if (CheckDistanceFromPlayer(mobile) > 5) {
+          MoveToTame(mobile);
+        }
+        player.cast(Spells.Fireball);
+        target.waitTargetEntity(mobile.serial);
+        sleep(spellRecoveryTime);
+      }
+      break;
+    }
+    //MELEE
+    case 2: {
+      let thisMobile = client.findObject(mobile.serial);
+      let attacking = true;
+
+      while (attacking) {
+        if (thisMobile.hits != null) {
+          if (thisMobile.hits > 0) {
+            player.attack(mobile.serial);
+            sleep(5000);
+          }
+          else {
+            attacking = false;
+            return;
+          }
+        }    
+      }
+      break;
+    }
+    //TAME
+    case 3: {
+      let thisMobile = client.findObject(mobile.serial);
+      while (thisMobile.hits > 0) {
+        player.say("All Kill");
+        target.waitTargetEntity(mobile.serial);
+        sleep(3000);
+      }
+      break;
+    }
+  }
+}
+
+//Check taming and set Tameable list accordingly
+//SET THESE LISTS TO MATCH YOUR SERVER
+function CheckSkillSetList() {
+  let tamingSkill = player.getSkill(Skills.AnimalTaming).value;
+  //Set Taming Lists
+  if (tamingSkill < 450) {
+    //COWS, SHEEP, GOAT, PIG
+    //console.log(tamingSkill)
+    TAMEABLELIST = UNDERFOURTYFIVE;
+  }
+  else if (tamingSkill < 600) {
+    //console.log(tamingSkill)
+    TAMEABLELIST = FOURTYFIVETOSIXTY;
+  }
+  else if (tamingSkill < 750) {
+    //WALRUS AND POLAR BEARS
+    //console.log(tamingSkill)
+    TAMEABLELIST = SIXTYTOSEVENTYFIVE;
+  }
+  else if (tamingSkill < 850) {
+    //SNOW LEOPARDS AND BULLS
+    //console.log(tamingSkill)
+    TAMEABLELIST = SEVENTYFIVETOEIGHTYFIVE;
+  }
+  else if (tamingSkill < 1000) {
+    //GREAT HEARTS AND BULLS
+    //console.log(tamingSkill)
+    TAMEABLELIST = EIGHTYFIVETOGM;
+  }
+  else if (tamingSkill < 1100) {
+    //MORE
+    //console.log(tamingSkill)
+    TAMEABLELIST = GMTOONETEN;
+  }
+  else if (tamingSkill < 1200) {
+    //console.log(tamingSkill)
+    TAMEABLELIST = ONETENTOONETWENTY
+  }
+  //Check Stats - Set locks
+}
+
+function IgnoreMobile(ignoreList: InGameObject[],mobileList: InGameObject[], mobile: InGameObject) {
+
+      console.log("Ignoring:", mobile.name, mobile.serial);
+      ignoreList.push(mobile);
+      if (mobileList.length > 1) {
+        mobileList = mobileList.slice(1, mobileList.length);
+      }
+      else{
+        mobileList = [];
+      }
+}
