@@ -1,0 +1,41 @@
+let isMeleeAttack = false; //do you want to attack with melee?
+let isTameAttack = true; //do you want to attack with your pet?
+let myTameSerial = 0x297C; //change to match your pet
+
+/////////////////////////////////////////////////////
+//customize the targeting to what you need.
+//only have one uncommented at a time as they will set a new target each.
+//here are a few examples below
+//if you use a different one, change below around line 36 and 40
+/////////////////////////////////////////////////////
+
+//let NEAREST_GRAY_NONHUMAN = client.selectEntity(SearchEntityOptions.Gray, SearchEntityRangeOptions.Nearest, SearchEntityTypeOptions.NonHuman, false);
+//let NEAREST_GRAY_HUMAN = client.selectEntity(SearchEntityOptions.Gray, SearchEntityRangeOptions.Nearest, SearchEntityTypeOptions.Human, false);
+let NEAREST_GRAY = client.selectEntity(SearchEntityOptions.Gray, SearchEntityRangeOptions.Nearest, SearchEntityTypeOptions.Any, false);
+
+/////////////////////////////////////////////////////
+
+enum TameContextMenu {
+  RENAME = 0,
+  COMMAND_KILL = 1,
+  COMMAND_FOLLOW = 2,
+  COMMAND_GUARD = 3,
+  COMMAND_STOP = 4,
+  COMMAND_STAY = 5,
+  ADD_FRIEND = 6,
+  REMOVE_FRIEND = 7,
+  TRANSFER = 8,
+  RELEASE = 9
+}
+
+//attack with pet
+if (isTameAttack) {
+    popupMenu.request(myTameSerial);
+    popupMenu.waitUntilOpen(1000);
+    popupMenu.reply(TameContextMenu.COMMAND_KILL);
+    target.waitTargetEntity(NEAREST_GRAY);
+}
+//attack with melee
+if (isMeleeAttack) {
+  player.attack(NEAREST_GRAY);
+}
