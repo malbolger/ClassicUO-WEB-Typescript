@@ -1,0 +1,19 @@
+let feedTarget = target.query(false);
+let foodType = 0x9F1; //raw ribs
+
+if (target) {
+  player.moveType(foodType, player.backpack, feedTarget, undefined, undefined, undefined, undefined, 1, 2);
+}
+
+
+function CheckDistanceFromPlayer(target) {
+  let distanceX = Math.abs(player.x - target.x);
+  let distanceY = Math.abs(player.y - target.y);
+  //console.log(distanceX, distanceY)
+  if (distanceX > distanceY) {
+    return distanceX;
+  }
+  else {
+    return distanceY;
+  }
+}
