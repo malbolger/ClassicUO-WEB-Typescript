@@ -1,0 +1,21 @@
+let instrument = [0xE9D];
+let on = true;
+let peaceCooldown = 5000;
+let coolDownTick = 10;
+let waitActionTimeout = 2000;
+
+
+while (on) {
+  let myInstrument = client.findType(instrument[0], undefined, player.serial);
+
+  if (myInstrument != null) {
+    if (coolDownTick >= 10) {
+      player.useSkill(Skills.Peacemaking)
+      target.waitTargetSelf(waitActionTimeout);
+      coolDownTick = 0;
+    }
+    coolDownTick++;
+    console.log(coolDownTick);
+    sleep(1000);
+  }
+}
