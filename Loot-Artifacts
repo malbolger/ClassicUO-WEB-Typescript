@@ -1,0 +1,53 @@
+let corpseType = 0x2006; //type of a corpse.
+let lootBag = 0x4082F6DE; //serial to the bag you want to put loot in.
+let clientAutoLootEnabled = true; //Do you have auto open corpses turned on?
+let overHeadMessageOnLoot = true; //Do you want to know when we loot an artifact?
+let overHeadMessageHue = 0x44; //Color of the overhead message.
+let overheadMessage = "_%^`-ARTIFACT-`^%_"; //Overhead message to display.
+let bodySearchRange = 2; //How far away to search for bodies.(Keep this small and walk close)
+let itemMovementDelay = 750; //Amount of time before we can move another item.
+
+
+while (true) {
+  sleep(150);
+
+  try {
+    let corpse = client.findType(corpseType, undefined, 0xFFFFFFFF, undefined, bodySearchRange);
+
+    if (corpse) {
+      if (!clientAutoLootEnabled) {
+        player.use(corpse);
+      }
+      let corpseItems = (client.findObject(corpse) as Item).contents
+
+      for (let item of corpseItems) {
+        if (property(item.serial)) {
+          player.moveItem(item.serial, lootBag);
+          if (overHeadMessageOnLoot) {
+            client.headMsg(overheadMessage, player, overHeadMessageHue);
+          }
+          sleep(itemMovementDelay);
+
+        }
+      }
+
+    }
+  }
+  catch{
+    console.log("Error");
+  }
+
+}
+
+//return the value of an item property or determine if this property exists
+function property(serial_item)
+{
+  var tooltip = client.queryItemOPL(serial_item);
+  var mod = tooltip.data.match(/Artifact/);
+  if (mod != null) {
+    return true;   
+  }
+  else {
+    return false
+  } 
+}
