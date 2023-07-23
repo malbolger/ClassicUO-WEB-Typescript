@@ -1,0 +1,55 @@
+let pouchType = 0xE79;
+let overHeadHue = 0x89;
+let IGNORELIST = [];
+let CompareItemsSerial = (ignoreItemList: InGameObject[], itemToCheck: InGameObject) => (ignoreItemList.find(item => item.serial === itemToCheck.serial));
+
+client.headMsg("<<Target Bag Of Pouches>>", player, overHeadHue);
+let bagTarget = target.query(false);
+sleep(500);
+client.headMsg(">>Target Set<<", player, overHeadHue)
+
+let pouchBag = client.findObject(bagTarget) as Item;
+
+if (!(pouchBag instanceof Item)) {
+  client.headMsg("%*Pouch Bag was not an Item*%", player, overHeadHue);
+  exit("That is not an item!");
+}
+let bagContents = pouchBag.contents;
+let onBool = true;
+
+//interface of object information given in game
+interface InGameObject {
+  name?: Mobile["name"];
+  type?: string;
+  serial?: number
+  x: number;
+  y: number;
+  z: number;
+  graphic: number;
+  hue: number;
+}
+
+while (onBool) {
+  if(player.isParalyzed) {
+    //client.headMsg("POPPING", player, overHeadHue);
+    PopIt();
+  }
+  sleep(100);
+}
+
+function PopIt() {
+  let bagsLeft = bagContents.length - IGNORELIST.length;
+  for (const item of bagContents) {
+    if (item.graphic == pouchType) {
+      if (!CompareItemsSerial(IGNORELIST, item)) {
+        player.use(item);
+        IGNORELIST.push(item);
+        let sb = bagsLeft.toString() + " Bags Left";
+        client.headMsg(sb, player, overHeadHue)
+        return;
+      }        
+    }
+  }
+  client.headMsg("Out of bags!", player, overHeadHue)
+  exit("You ran out of trapped pouches, RESTOCK AND RESTART"); 
+}
