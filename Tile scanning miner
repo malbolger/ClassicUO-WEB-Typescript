@@ -1,0 +1,652 @@
+/************************/
+/*********CONFIG*********/
+/************************/
+
+//enum of system responses. Change to fit your needs.
+enum MiningResponse {
+  MUST_WAIT = "You must wait",
+  TARGET_NOT_SEEN = "Target cannot be seen",
+  MINING_FAIL = "You loosen",
+  MINING_SUCCESS = "You Dig",
+  NO_METAL = "There is no metal",
+  OUT_OF_TOOLS = "You are out of tools!",
+  CANT_DIG = "You can't dig",
+  FULL_BACKPACK = "Your backpack is full",
+  YOU_MOVED_TOO_FAR = "You have moved too far away",
+  TOO_FAR = "That is too far away",
+  CANT_MINE = "You can't mine there"
+}
+
+enum OreNames {
+  ORE_IRON = "iron ore",
+  ORE_DULL_COPPER = "dull copper ore",
+  ORE_SHADOW_IRON = "shadow iron ore",
+  ORE_COPPER = "copper ore",
+  ORE_BRONZE = "bronze ore",
+  ORE_GOLDEN = "golden ore",
+  ORE_AGAPITE = "agapite ore",
+  ORE_VERITE = "verite ore",
+  ORE_VALORITE = "valorite ore"
+}
+
+let pickAxe = 0xE86; //Pickaxe graphic (default: 0xE86)
+let scanRange = 4; //How many spaces awy to scan for tiles (default: 4)
+let maxHeightDifference = 20; //Seems to be good for most mountain sides (default: 20)
+let pickRange = 2; //How far away you can use your pickaxe (default: 2)
+let fixStuckSteps = 6; //How many steps to left or right to try and get unstuck (default: 3)
+let weightFromMaxFull = 20; //How close to full before you stop or recall (default: 20)
+let onBool = true; //Bool that controls our script loop. (default: true)
+
+let fireBeetle = 0x6F40B;
+let itemMoveDelay = 750;
+let itemUseDelay = 1000;
+let runeBook = 0x401EEC93;
+
+let dropLocationX = 2574;
+let dropLocationY = 171;
+let dropBox = 0x4033FFAD;
+let ingotType = 0x1BF2;
+let recallWalkToHouse = Directions.North;
+
+const LandTileCompareLocationToList = (tileList: TileObject[], searchTile: { x: number, y: number }) => tileList.find(tile => tile.x === searchTile.x && tile.y && tile.y === searchTile.y);
+const LandTileComapreGraphicToList = (tileList: number[], searchTile: { graphic: number }) => tileList.find(graphic => graphic === searchTile.graphic);
+const HeightDiff = (playerZ: number, tileZ: number) => Math.abs(playerZ - tileZ);
+
+//Arrays of different graphics that we will use.
+//Different ore graphics.
+let ORES = [0x19BA, 0x19B9, 0x19B8, 0x19B7];
+
+//Mineable tile graphics.
+let MINEABLETILES = [0x233, 0x234, 0x235, 0x236, 0x23A, 0x23B, 0x23C, 0x23D, 0x23E, 0x23F, 0xEF, 0x53D, 0xDE, 0xEC, 0xF0, 0xF4,
+  0xEF, 0xF2, 0xF7, 0xEE, 0xF3, 0xCD0];
+
+
+//Arrays that we will sort our tiles into
+//These should be blank.
+let TERRAINLISTRAW = [];
+let TERRAINMINEABLELIST = [];
+let TERRAINIGNORELIST = [];
+
+//interface of tile information given in game
+interface TileObject {
+  name?: Mobile["name"];
+  type?: string;
+  serial?: number
+  x: number;
+  y: number;
+  z: number;
+  graphic: number;
+  hue: number;
+  isLand: boolean;
+}
+
+//lets
+
+
+/****************************/
+/*********END CONFIG*********/
+/****************************/
+
+
+//*****************************
+//          GAME LOOP
+//*****************************
+
+
+//Script Main Loop
+while (onBool) {
+  if (TERRAINMINEABLELIST.length === 0) {
+    CollectTerrainInfo(scanRange);
+    SortMineableTilesFromList(TERRAINLISTRAW, MINEABLETILES, TERRAINMINEABLELIST, TERRAINIGNORELIST, maxHeightDifference);
+  }
+  else if (TERRAINMINEABLELIST.length > 0) {
+    MoveTowards(TERRAINMINEABLELIST[0]);
+    Mine(TERRAINMINEABLELIST[0]);
+  }
+}
+
+
+//*******************************
+//          FUNCTIONS
+//*******************************
+function CollectTerrainInfo(scanRange: number) {
+
+  //Clear our list incase of leftover items
+  TERRAINLISTRAW = [];
+
+  //Our character location
+  let myX = player.x;
+  let myY = player.y;
+  let myZ = player.z
+
+  //Start of the grid we will be collecting
+  let gridX = myX - scanRange
+  let gridY = myY - scanRange
+
+  //collect the information
+  while (gridX <= myX + scanRange) {
+    while (gridY <= myY + scanRange) {
+      //strip[ and push the tile information to the array
+      TERRAINLISTRAW.push(client.getTerrainList(gridX, gridY)[0]);
+      //increase the Y coordinate
+      gridY = gridY + 1
+    }
+    //reset the Y coordinate 
+    gridY = myY - scanRange
+    //increase the X coordinate
+    gridX = gridX + 1
+  }
+  //client.headMsg("TerrainList", player);
+}
+
+//TODO: Refactor these loops with an arrow method comparing graphics.
+function SortMineableTilesFromList(terrainListRaw: TileObject[], mineableTilesList: number[], terrainMineableList: TileObject[], terrainIgnoreList: TileObject[], maxHeightDifference: number) {
+  for (let i = 0; i < terrainListRaw.length; i++) {
+    for (let j = 0; j < mineableTilesList.length; j++) {
+      //Find a tile that is mineable 
+      if (terrainListRaw[i].graphic === mineableTilesList[j]) {
+        //CHECK IF TILE IS IN THE IGNORE LIST
+        if (LandTileCompareLocationToList(terrainIgnoreList, terrainListRaw[i])) {
+          console.log("Tile is already ignored:", terrainIgnoreList, terrainListRaw[i]);
+        }
+        //if (!TERRAINIGNORELIST.includes(terrainListRaw[i]))
+        else if (!LandTileCompareLocationToList(terrainIgnoreList, terrainListRaw[i])) {
+          //MOVE TO MINEABLETILES TILE OR ADD TO IGNORE BASED ON Z
+          if (HeightDiff(player.z, terrainListRaw[i].z) < maxHeightDifference) {
+            console.log("Tile is good:", terrainIgnoreList, terrainListRaw[i]);
+            terrainMineableList.push(terrainListRaw[i]);
+          }
+          else {
+            console.log("Ignoring tile:", terrainIgnoreList, terrainListRaw[i]);
+            terrainIgnoreList.push(terrainListRaw[i]);
+            continue;
+          }
+        }
+        else {
+          //FIND NEW TILE
+          client.headMsg("find new tile", player);
+          continue;
+        }
+      }
+      else {
+        //client.headMsg("Not mineable", player);
+        //console.log("Not Mineable: ", mineableTilesList[i]);
+      }
+    }
+    //client.headMsg(terrainListRaw.length.toString() , player);
+    //terrainListRaw.splice(terrainListRaw[i], 1);
+
+  }
+  //Our List is finished and we need to move and get more.
+  console.log("Finished List");
+}
+
+function RandomMovement() {
+  let direction = Math.random()
+  console.log(direction);
+  if (direction < .25) {
+    //move west
+    for (let i = 0; i < 4; i++) {
+      player.walk(Directions.West)
+      sleep(1000)
+    }
+  }
+  else if (direction > .24 && direction < .50) {
+    //move north
+    for (let i = 0; i < 4; i++) {
+      player.walk(Directions.North)
+      sleep(1000)
+    }
+  }
+  else if (direction > .49 && direction < .75) {
+    //move east
+    for (let i = 0; i < 4; i++) {
+      player.walk(Directions.East)
+      sleep(1000)
+    }
+  }
+  else {
+    //move south
+    for (let i = 0; i < 4; i++) {
+      player.walk(Directions.South)
+      sleep(1000)
+    }
+  }
+}
+
+function MoveTowards(tileObject: TileObject) {
+
+  let myX = player.x;
+  let myY = player.y;
+
+  let locationX = tileObject.x;
+  let locationY = tileObject.y;
+  let distanceBool = true;
+  let ewBool = false;
+  let nsBool = false
+  let walkingAttempts = 0;
+  let maxWalkingAttempts = 20;
+
+
+  while (distanceBool) {
+    let distanceEW = player.x - locationX;
+    let distanceNS = player.y - locationY;
+
+    walkingAttempts++
+
+    //TODO: CHECK DIAGONALS FIRST
+    //console.log("MyX:", myX, "MobileX:", locationX, "MyY:", myY, "MobileY:", locationY, "DistanceEW:", distanceEW, "DistanceNS:", distanceNS);
+    if ((myX > locationX && myY > locationY) && (distanceEW > 1 && distanceNS > 1) && walkingAttempts < maxWalkingAttempts) {
+      client.headMsg("Walking Up", player);
+      player.walk(Directions.Up);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY < locationY) && (distanceEW < -1 && distanceNS < -1) && walkingAttempts < maxWalkingAttempts) {
+      client.headMsg("Walking Down", player);
+      player.walk(Directions.Down);
+      sleep(500);
+      continue;
+    }
+    else if ((myX > locationX && myY < locationY) && (distanceEW > 1 && distanceNS < -1) && walkingAttempts < maxWalkingAttempts) {
+      client.headMsg("Walking Left", player);
+      player.walk(Directions.Left);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY > locationY) && (distanceEW < -1 && distanceNS > 1) && walkingAttempts < maxWalkingAttempts) {
+      client.headMsg("Walking Right", player);
+      player.walk(Directions.Right);
+      sleep(500);
+      continue;
+    }
+
+    if (myX > locationX && distanceEW > pickRange) {
+      //More than max attempts lets try getting unstuck
+      if (walkingAttempts > maxWalkingAttempts) {
+        let leftTile = client.getTerrainList(player.x, player.y + 1)[0];
+        let leftTile2 = client.getTerrainList(player.x, player.y + 2)[0];
+
+        if (LandTileComapreGraphicToList(MINEABLETILES, leftTile) || LandTileComapreGraphicToList(MINEABLETILES, leftTile2)) {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.South);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+        else {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.North);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+
+      }
+      else {
+        client.headMsg("Walking West", player);
+        player.walk(Directions.West);
+        sleep(500);
+      }
+    }
+    else if (myX < locationX && distanceEW < -pickRange) {
+      if (walkingAttempts > maxWalkingAttempts) {
+        let leftTile = client.getTerrainList(player.x, player.y - 1)[0];
+        let leftTile2 = client.getTerrainList(player.x, player.y - 2)[0];
+        if (LandTileComapreGraphicToList(MINEABLETILES, leftTile) || LandTileComapreGraphicToList(MINEABLETILES, leftTile2)) {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.North);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+        else {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.South);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+      }
+      else {
+        client.headMsg("Walking East", player);
+        player.walk(Directions.East);
+        sleep(500);
+      }
+    }
+    else {
+      ewBool = true;
+    }
+
+    if (myY > locationY && distanceNS > pickRange) {
+      if (walkingAttempts > maxWalkingAttempts) {
+        let leftTile = client.getTerrainList(player.x - 1, player.y)[0];
+        let leftTile2 = client.getTerrainList(player.x - 2, player.y)[0];
+        if (LandTileComapreGraphicToList(MINEABLETILES, leftTile) || LandTileComapreGraphicToList(MINEABLETILES, leftTile2)) {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.East);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+        else {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.West);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+      }
+      else {
+        client.headMsg("Walking North", player);
+        player.walk(Directions.North);
+        sleep(500);
+      }
+    }
+    else if (myY < locationY && distanceNS < -pickRange) {
+      if (walkingAttempts > maxWalkingAttempts) {
+        let leftTile = client.getTerrainList(player.x + 1, player.y)[0];
+        let leftTile2 = client.getTerrainList(player.x + 2, player.y)[0];
+        if (LandTileComapreGraphicToList(MINEABLETILES, leftTile) || LandTileComapreGraphicToList(MINEABLETILES, leftTile2)) {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.West);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+        else {
+          for (let i = 0; i < fixStuckSteps; i++) {
+            player.walk(Directions.East);
+            sleep(500);
+          }
+          walkingAttempts = 0;
+        }
+      }
+      else {
+        client.headMsg("Walking South", player);
+        player.walk(Directions.South);
+        sleep(500);
+      }
+    }
+    else {
+      nsBool = true;
+    }
+
+    if (ewBool && nsBool) {
+      //console.log("At Location")
+      distanceBool = false;
+    }
+  }
+}
+
+
+function Mine(tileObject: TileObject) {
+  //console.log(tileObject)
+  let stillResource = true;
+
+  while (stillResource) {
+    journal.clear();
+
+    //check that we have pickaxes
+    //use the pickaxe item
+    if (client.findType(pickAxe, undefined, player.serial)) {
+      player.useType(pickAxe);
+      target.wait(1000)
+      //target the tile
+      //console.log("type:",tileObject.type,"graphic:", tileObject.graphic, "x:",tileObject.x, "y:",tileObject.y, "z:",tileObject.z)
+      if (tileObject.isLand === false) {
+        console.log("Targetting Static{", "graphic:", tileObject.graphic, "x:", tileObject.x, "y:", tileObject.y, "}")
+        target.terrain(tileObject.x, tileObject.y, tileObject.z, tileObject.graphic)
+      }
+      else {
+        console.log("Targetting Land{", "graphic:", tileObject.graphic, "x:", tileObject.x, "y:", tileObject.y, "}");
+        target.terrain(tileObject.x, tileObject.y, tileObject.z)
+      }
+      //target.terrainRelativeToEntity(player.serial, 1, true, 0x53E);
+    }
+    else {
+      client.headMsg("You are out of tools!", player);
+      MacroOff();
+      return;
+    }
+
+    let response = journal.waitForTextAny([OreNames.ORE_DULL_COPPER, OreNames.ORE_SHADOW_IRON, OreNames.ORE_COPPER,
+    OreNames.ORE_BRONZE, OreNames.ORE_GOLDEN, OreNames.ORE_AGAPITE, OreNames.ORE_VERITE, OreNames.ORE_VALORITE,
+    OreNames.ORE_IRON, MiningResponse.CANT_DIG, MiningResponse.MINING_FAIL, MiningResponse.MINING_SUCCESS,
+    MiningResponse.MUST_WAIT, MiningResponse.NO_METAL, MiningResponse.TARGET_NOT_SEEN, MiningResponse.FULL_BACKPACK,
+    MiningResponse.YOU_MOVED_TOO_FAR, MiningResponse.TOO_FAR, MiningResponse.CANT_MINE]);
+
+    switch (response) {
+      case MiningResponse.CANT_DIG: {
+        client.headMsg("You need to dismount", player);
+        player.use(player); //dismount
+        return;
+      }
+      case MiningResponse.MINING_FAIL: {
+        //client.headMsg("MINING FAIL", player);
+        return;
+      }
+      case MiningResponse.MINING_SUCCESS: {
+        client.headMsg("MINING SUCCESS", player);
+        console.log(response);;
+        return;
+      }
+      case MiningResponse.MUST_WAIT: {
+        client.headMsg("Busy... trying again", player);
+        return;
+      }
+      case MiningResponse.NO_METAL: {
+        //console.log("Empty or cannot see");
+        //we need to ignore this tile now
+        TERRAINIGNORELIST.push(tileObject);
+        TERRAINMINEABLELIST = TERRAINMINEABLELIST.slice(1, TERRAINMINEABLELIST.length);
+        client.headMsg("NO METAL", player);
+        stillResource = false;
+        return;
+      }
+      case MiningResponse.TARGET_NOT_SEEN: {
+        if (LandTileCompareLocationToList(TERRAINIGNORELIST, tileObject)) {
+          TERRAINMINEABLELIST = TERRAINMINEABLELIST.slice(1, TERRAINMINEABLELIST.length);
+          console.log("Ignore has that item", tileObject)
+          stillResource = false;
+          return;
+        }
+        else {
+          TERRAINIGNORELIST.push(tileObject);
+          TERRAINMINEABLELIST = TERRAINMINEABLELIST.slice(1, TERRAINMINEABLELIST.length);
+          return;
+        }
+      }
+      case MiningResponse.FULL_BACKPACK: {
+        client.headMsg("Backpack full", player);
+        MacroOff();
+        return;
+      }
+      case MiningResponse.YOU_MOVED_TOO_FAR: {
+        client.headMsg("You moved away", player);
+        MoveTowards(TERRAINMINEABLELIST[0]);
+        return;
+      }
+      case MiningResponse.TOO_FAR: {
+        client.headMsg("You are too far away", player);
+        MoveTowards(TERRAINMINEABLELIST[0]);
+        return;
+      }
+      case MiningResponse.CANT_MINE: {
+        if (LandTileCompareLocationToList(TERRAINIGNORELIST, tileObject)) {
+          console.log("Ignore has that item", tileObject)
+          stillResource = false;
+          return;
+        }
+        else {
+          TERRAINIGNORELIST.push(tileObject);
+          TERRAINMINEABLELIST = TERRAINMINEABLELIST.slice(1, TERRAINMINEABLELIST.length);
+          return;
+        }
+      }
+      case OreNames.ORE_DULL_COPPER: {
+        client.headMsg(">>Dull Copper<<", player, 0x0973);
+        break;
+      }
+      case OreNames.ORE_SHADOW_IRON: {
+        client.headMsg(">>Shadow<<", player, 0x0966);
+        break;
+      }
+      case OreNames.ORE_COPPER: {
+        client.headMsg(">>Copper<<", player, 0x096D);
+        break;
+      }
+      case OreNames.ORE_BRONZE: {
+        client.headMsg(">>Bronze<<", player, 0x972);
+        break;
+      }
+      case OreNames.ORE_GOLDEN: {
+        client.headMsg(">>Golden<<", player, 0x08A5);
+        break;
+      }
+      case OreNames.ORE_AGAPITE: {
+        client.headMsg(">>Agapite<<", player, 0x979);
+        //0x979
+        break;
+      }
+      case OreNames.ORE_VERITE: {
+        client.headMsg(">>Verite<<", player, 0x089F);
+        break;
+      }
+      case OreNames.ORE_VALORITE: {
+        client.headMsg(">>Valorite<<", player, 0x8AB);
+        break;
+      }
+      case OreNames.ORE_IRON: {
+        client.headMsg(">>Iron<<", player, 0x0394);
+        break;
+      }
+    }
+    //check if our backpack is full
+    if (player.weight >= (player.weightMax - weightFromMaxFull)) {
+      //console.log("Full Backpack")
+      client.headMsg("Backpack is Full", player);
+      //Recall to bank or forge
+      SmeltBeetle();
+      //Still pretty full after smelting. We should drop off
+      if (player.weight >= (player.weightMax - (weightFromMaxFull + 20))) {
+        RecallToDropOff()                         //Recall to drop off
+        let oreBox = client.findObject(dropBox);
+        MoveTo(oreBox.x, oreBox.y)                //Move to the drop box
+        MoveMetalToBox();                         //drop off item.
+      }
+      else {
+        //MacroOff();
+        return;
+      }
+    }
+  }
+}
+
+function SmeltBeetle() {
+  for (let item of player.backpack.contents) {
+    if (LandTileComapreGraphicToList(ORES, item)) {
+      player.use(item);
+      target.waitTargetEntity(fireBeetle);
+      sleep(itemUseDelay);
+    }
+  }
+}
+
+function RecallToDropOff() {
+  player.cast(Spells.Recall);
+  target.wait(3000);
+  target.entity(runeBook);
+  sleep(2000);
+  //We need to walk one step onto house
+  for (let i = 0; i < 4; i++) {
+    player.walk(recallWalkToHouse);
+    sleep(500);
+  }
+}
+
+function MoveTo(destX: number, destY: number) {
+
+  let locationX = destX;
+  let locationY = destY;
+  let distanceBool = true;
+
+
+  while (distanceBool) {
+    let myX = player.x;
+    let myY = player.y;
+    let distanceEW = player.x - locationX;
+    let distanceNS = player.y - locationY;
+
+    if (Math.abs(distanceEW) < 2 && Math.abs(distanceNS) < 2) {
+      distanceBool = false;
+    }
+
+    //TODO: CHECK DIAGONALS FIRST
+    //console.log("MyX:", myX, "MobileX:", locationX, "MyY:", myY, "MobileY:", locationY, "DistanceEW:", distanceEW, "DistanceNS:", distanceNS);
+    if ((myX > locationX && myY > locationY) && (distanceEW > 1 && distanceNS > 1)) {
+      client.headMsg("Walking Up", player);
+      player.walk(Directions.Up);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY < locationY) && (distanceEW < -1 && distanceNS < -1)) {
+      client.headMsg("Walking Down", player);
+      player.walk(Directions.Down);
+      sleep(500);
+      continue;
+    }
+    else if ((myX > locationX && myY < locationY) && (distanceEW > 1 && distanceNS < -1)) {
+      client.headMsg("Walking Left", player);
+      player.walk(Directions.Left);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX && myY > locationY) && (distanceEW < -1 && distanceNS > 1)) {
+      client.headMsg("Walking Right", player);
+      player.walk(Directions.Right);
+      sleep(500);
+      continue;
+    }
+    else if ((myX > locationX) && (distanceEW > 1)) {
+      client.headMsg("Walking West", player);
+      player.walk(Directions.West);
+      sleep(500);
+      continue;
+    }
+    else if ((myX < locationX) && (distanceEW < -1)) {
+      client.headMsg("Walking East", player);
+      player.walk(Directions.East);
+      sleep(500);
+      continue;
+    }
+    else if ((myY < locationY) && (distanceNS < -1)) {
+      client.headMsg("Walking South", player);
+      player.walk(Directions.South);
+      sleep(500);
+      continue;
+    }
+    else if ((myY > locationY) && (distanceNS > 1)) {
+      client.headMsg("Walking North", player);
+      player.walk(Directions.North);
+      sleep(500);
+      continue;
+    }
+  }
+}
+
+function MoveMetalToBox() {
+  for (let item of player.backpack.contents) {
+    if (item.graphic == ingotType) {
+      player.moveItem(item, dropBox);
+      sleep(itemMoveDelay);
+    }
+  }
+  client.headMsg("Finished moving ingots.", player);
+}
+
+//turn off our macro loop
+function MacroOff() {
+  onBool = false;
+  return;
+}
