@@ -1,0 +1,42 @@
+let scanInterval = 500;       //millisecond interval to search for rares
+let showLocations = false;    //show your/rare locations in system messages
+let rareMessageColor = 33;    //Red
+let messageOverhead = false;  //true shows overhead, false shows in system
+let rareFoundMessage = ">>>>Rare Found<<<<"; //Message to display when a rare is found
+
+
+//Body and Hue combinations to search for
+let tameList: RareTames = [
+  { graphic: 0xB1, hue: 0x776 }, //nightmare shortmane red
+  { graphic: 0xB1, hue: 0x7AC }, //nightmare shortmane black
+]
+
+while (true) {
+  for (let tame of tameList) {
+    let findType = client.findType(tame.graphic);
+    if (findType) {
+      let mobileInfo = client.findObject(findType) as Mobile;
+      if (tame.hue == mobileInfo.hue) {
+        if (messageOverhead) {
+          client.headMsg(rareFoundMessage, player, rareMessageColor);
+        }
+        else {
+          client.sysMsg(rareFoundMessage, rareMessageColor);
+        }
+        if (showLocations) {
+          let myLoc = "MyX: " + player.x + " MyY: " + player.y;
+          let sb = "X: " + mobileInfo.x + " Y: " + mobileInfo.y;
+          client.sysMsg(myLoc);
+          client.sysMsg(sb);
+        }
+      }
+    }
+  }
+  sleep(scanInterval);
+}
+
+interface RareTame {
+  graphic: number;
+  hue: number;
+}
+interface RareTames extends Array<RareTame> { };
